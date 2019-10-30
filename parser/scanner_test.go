@@ -17,6 +17,97 @@ func TestScannerTagNameWithDotAndEqual(t *testing.T) {
 		})
 }
 
+func TestScannerEndTagWithMinus(t *testing.T) {
+	testScannerSuccess(t, "{%foo baz aaa-%} awer{% aa= -%}",
+		[]tt{
+			{ID: tagName, Value: "foo"},
+			{ID: tagContents, Value: "baz aaa"},
+			{ID: text, Value: " awer"},
+			{ID: tagName, Value: "aa="},
+			{ID: tagContents, Value: ""},
+		})
+	testScannerSuccess(t, "{%foo baz aaa- %} awer{% aa= -% %}",
+		[]tt{
+			{ID: tagName, Value: "foo"},
+			{ID: tagContents, Value: "baz aaa-"},
+			{ID: text, Value: " awer"},
+			{ID: tagName, Value: "aa="},
+			{ID: tagContents, Value: "-%"},
+		})
+	testScannerSuccess(t, "{%foo -%} \t\r\n\tawer{%aa= - %}",
+		[]tt{
+			{ID: tagName, Value: "foo"},
+			{ID: tagContents, Value: ""},
+			{ID: text, Value: "\tawer"},
+			{ID: tagName, Value: "aa="},
+			{ID: tagContents, Value: "-"},
+		})
+	testScannerSuccess(t, "{%foo-%}\n  awer{%bar -%}\n",
+		[]tt{
+			{ID: tagName, Value: "foo"},
+			{ID: tagContents, Value: ""},
+			{ID: text, Value: "  awer"},
+			{ID: tagName, Value: "bar"},
+			{ID: tagContents, Value: ""},
+		})
+	testScannerSuccess(t, "{%foo-%}{%bar%} \n {%baz%}",
+		[]tt{
+			{ID: tagName, Value: "foo"},
+			{ID: tagContents, Value: ""},
+			{ID: tagName, Value: "bar"},
+			{ID: tagContents, Value: ""},
+			{ID: text, Value: " \n "},
+			{ID: tagName, Value: "baz"},
+			{ID: tagContents, Value: ""},
+		})
+}
+
+func TestScannerBeginTagWithMinus(t *testing.T) {
+	testScannerSuccess(t, "x\n   {%-foo%}",
+		[]tt{
+			{ID: text, Value: "x\n"},
+			{ID: tagName, Value: "foo"},
+			{ID: tagContents, Value: ""},
+		})
+	testScannerSuccess(t, "{%- foo%}",
+		[]tt{
+			{ID: tagName, Value: "foo"},
+			{ID: tagContents, Value: ""},
+		})
+	testScannerSuccess(t, "{%-foo baz aaa%} awer\n\t {%-aa= %}",
+		[]tt{
+			{ID: tagName, Value: "foo"},
+			{ID: tagContents, Value: "baz aaa"},
+			{ID: text, Value: " awer\n"},
+			{ID: tagName, Value: "aa="},
+			{ID: tagContents, Value: ""},
+		})
+	testScannerSuccess(t, "{%-foo baz aaa%} awer {- % aa= %}",
+		[]tt{
+			{ID: tagName, Value: "foo"},
+			{ID: tagContents, Value: "baz aaa"},
+			{ID: text, Value: " awer {- % aa= %}"},
+		})
+	testScannerSuccess(t, "{%-foo baz aaa%} awer {-{%- aa= xxx%}",
+		[]tt{
+			{ID: tagName, Value: "foo"},
+			{ID: tagContents, Value: "baz aaa"},
+			{ID: text, Value: " awer {-"},
+			{ID: tagName, Value: "aa="},
+			{ID: tagContents, Value: "xxx"},
+		})
+	testScannerSuccess(t, "{%-foo%}{%bar%} \n {%baz%}",
+		[]tt{
+			{ID: tagName, Value: "foo"},
+			{ID: tagContents, Value: ""},
+			{ID: tagName, Value: "bar"},
+			{ID: tagContents, Value: ""},
+			{ID: text, Value: " \n "},
+			{ID: tagName, Value: "baz"},
+			{ID: tagContents, Value: ""},
+		})
+}
+
 func TestScannerStripspaceSuccess(t *testing.T) {
 	testScannerSuccess(t, "  aa\n\t {%stripspace%} \t\n  f\too \n   b  ar \n\r\t {%  bar baz  asd %}\n\nbaz \n\t \taaa  \n{%endstripspace%} bb  ", []tt{
 		{ID: text, Value: "  aa\n\t "},
@@ -185,6 +276,13 @@ func TestScannerFailure(t *testing.T) {
 	testScannerFailure(t, "a{% foo %")
 	testScannerFailure(t, "b{% fo() %}bar")
 	testScannerFailure(t, "aa{% foo bar")
+
+	testScannerFailure(t, "a{%-")
+	testScannerFailure(t, "a{%-foo")
+	testScannerFailure(t, "a{%-% }foo")
+	testScannerFailure(t, "a{%- foo %")
+	testScannerFailure(t, "b{%- fo() %}bar")
+	testScannerFailure(t, "aa{%- foo bar")
 }
 
 func testScannerFailure(t *testing.T, str string) {
